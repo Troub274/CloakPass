@@ -2,14 +2,14 @@
 
 """CloakPass copyright 1994 MtxDev.
 
-# version P_2.0rc Dec 2021 by MtxDev
+# version P_2.01rc Dec 2021 by MtxDev
 # The previous versions were written in Visual Basic.
 # cntl alt p turns on the listener.
 # Key's are captured upon tab or enter
 # the hashed string is output.
 # Two command line arguments are input a salt and a key
 # This makes each usage unique.
-# cntl alt i ends the program
+# cntl alt e ends the program
 """
 import argparse
 
