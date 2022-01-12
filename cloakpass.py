@@ -23,15 +23,15 @@ parser.add_argument('--salt', type=str,
                     'cloaking starting point')
 parser.add_argument('--passlen', type=int, default=12,
                     help="the max password length")
-parser.add_argument('--spcchars', type=str, default=True,
+parser.add_argument('--spcchars', type=bool, default=True,
                     help="include special chars (True or False)")
-parser.add_argument('--caps', type=str, default=True,
+parser.add_argument('--caps', type=bool, default=True,
                     help="include capital letters (True or False)")
-parser.add_argument('--numbers', type=str, default=True,
+parser.add_argument('--numbers', type=bool, default=True,
                     help="include numbers (True or False)")
-parser.add_argument('--showpass', type=str, default=False,
+parser.add_argument('--showpass', type=bool, default=False,
                     help="Show plain text password as you type it")
-parser.add_argument('--showstars', type=str, default=False,
+parser.add_argument('--showstars', type=bool, default=False,
                     help="Shows plain text * as you type")
 
 myargs = parser.parse_args()
@@ -91,7 +91,7 @@ class CloakPass():
     bShowPass = False  # Do we type the password for the user or hide it
     bShowStars = False  # Do we type stars for the user or hide letter count
     sHotKeyP = '<ctrl>+<alt>+p'  # Hotkey for starting the password session
-    sHotKeyI = '<ctrl>+<alt>+i'  # Hotkey for shutting down CloakPass
+    sHotKeyI = '<ctrl>+<alt>+e'  # Hotkey for shutting down CloakPass
 
     # Flags
     bHotKeyP = False  # flag to control the start of the listener
