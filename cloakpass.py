@@ -51,7 +51,7 @@ class CloakPass():
     to change the hash or exit the program
     """
 
-    sMyVer = "PY_2.03b"
+    sMyVer = "PY_2.03rc"
     # needed for sha512 Hash functions
     import hashlib
     from collections import OrderedDict
