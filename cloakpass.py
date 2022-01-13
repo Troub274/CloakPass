@@ -2,14 +2,14 @@
 
 """CloakPass copyright 1994 MtxDev.
 
-# version P_2.01rc Dec 2021 by MtxDev
+# version P_2.03rc Jan 2022 by MtxDev
 # The previous versions were written in Visual Basic.
 # cntl alt p turns on the listener.
 # Key's are captured upon tab or enter
 # the hashed string is output.
 # Two command line arguments are input a salt and a key
 # This makes each usage unique.
-# cntl alt e ends the program
+# cntl alt i ends the program
 """
 import argparse
 
@@ -23,16 +23,18 @@ parser.add_argument('--salt', type=str,
                     'cloaking starting point')
 parser.add_argument('--passlen', type=int, default=12,
                     help="the max password length")
-parser.add_argument('--spcchars', type=bool, default=True,
-                    help="include special chars (True or False)")
-parser.add_argument('--caps', type=bool, default=True,
-                    help="include capital letters (True or False)")
-parser.add_argument('--numbers', type=bool, default=True,
-                    help="include numbers (True or False)")
-parser.add_argument('--showpass', type=bool, default=False,
+parser.add_argument('--nospcchars', action='store_const', const=False, default=True,
+                    help="do not include special chars")
+parser.add_argument('--nocaps', action='store_const', const=False, default=True,
+                    help="do not include capital letters")
+parser.add_argument('--nonumbers', action='store_const', const=False, default=True,
+                    help="do not include numbers")
+parser.add_argument('--showpass', action='store_const', const=True, default=False,
                     help="Show plain text password as you type it")
-parser.add_argument('--showstars', type=bool, default=False,
+parser.add_argument('--showstars', action='store_const', const=True, default=False,
                     help="Shows plain text * as you type")
+parser.add_argument('--ver', action='store_const', const=True, default=False,
+                    help="Shows version")
 
 myargs = parser.parse_args()
 
@@ -49,7 +51,8 @@ class CloakPass():
     to change the hash or exit the program
     """
 
-    # needed for MD5 Hash functions
+    sMyVer = "PY_2.03b"
+    # needed for sha512 Hash functions
     import hashlib
     from collections import OrderedDict
     import base64
@@ -116,7 +119,10 @@ class CloakPass():
                  bNums: bool = True,
                  bShowPass: bool = False,
                  bShowStars: bool = False,
+                 bShowVer: bool = False,
                  ) -> None:
+        if bShowVer is True:
+            print(self.sMyVer)
         self.sSalt = sSalt
         self.sKey = sKey
         self.iPassLen = iPassLen
@@ -127,7 +133,6 @@ class CloakPass():
         self.bShowStars = bShowStars
         if bShowStars is True:
             self.bShowPass = False
-
         self.myController = self.Controller()
 
     def main(self) -> None:
@@ -206,20 +211,34 @@ class CloakPass():
         """Hash a password using 3 items irreversibly."""
         sHashPass = sSalt + sInput + sKey
         self.debug(2, "sHashPass=" + sHashPass, "HashPass")
+        # make a cryptographic hash from the string to make it unrecognizable
         hashthing = self.hashlib.sha512()
-        hashthing.update(bytes(sHashPass, 'utf-8'))
+        hashthing.update(bytes(sHashPass,'ascii'))
         hxSha512 = hashthing.hexdigest()
         self.debug(2, "hxSha512=" + str(hxSha512), "HashPass")
+        # going base 64 adds caps to the string pretty well
         hx64 = hxSha512.encode('ascii')
         base64_bytes = self.base64.b64encode(hx64)
         base64_message = base64_bytes.decode('ascii')
+        # shortening and removing dupes makes reversing infeasable
         sNoDupes = "".join(self.OrderedDict.fromkeys(base64_message))
+        #Limit the string size based upon the max length specified.
         if self.iPassLen >= len(sNoDupes):
             self.iPassLen = len(sNoDupes)
         sHP = sNoDupes[0:self.iPassLen]
-        # Replace some numbers with some special characters
+        # add some special characters
         if self.bSpcChars is True:  # refine this later
-            mydict = {51:  33, 52:  35, 53:  36, 54:  37, 61:  36}
+            mydict = {99:  37, 100:  33, 51:  33, 52:  35, 53:  36, 54:  37, 61:  36}
+            sAddSpcChar = sHP.translate(mydict)
+            sHP = sAddSpcChar[0:self.iPassLen-1]
+            sHP = sHP + "!"
+        # No capital letters
+        if self.bCaps is False:
+            sHP = sHP.lower()
+        # Replace numbers with lower case letters
+        if self.bNums is False:  #
+            mydict = {48:  97, 49:  105, 50:  99, 51:  100, 52:  101,
+                      53:  112, 54:  103, 55:  122, 56:  118, 57:  108}
             sAddSpcChar = sHP.translate(mydict)
             sHP = sAddSpcChar
         self.debug(2, "sHP=" + sHP, "HashPass")
@@ -366,10 +385,11 @@ if __name__ == '__main__':
     """Main portion to execute class."""
     cloak = CloakPass(myargs.key, myargs.salt,
                       myargs.passlen,
-                      myargs.spcchars,
-                      myargs.caps,
-                      myargs.numbers,
-                      myargs.showpass,
-                      myargs.showstars
+                      bool(myargs.nospcchars),
+                      bool(myargs.nocaps),
+                      bool(myargs.nonumbers),
+                      bool(myargs.showpass),
+                      bool(myargs.showstars),
+                      bool(myargs.ver)
                       )
     cloak.main()
