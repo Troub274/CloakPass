@@ -1,5 +1,7 @@
 # CloakPass
 Password Hasher
+The problem is this: Passwords that are memorable are easy to crack and passwords that are hard to crack are difficult to remember.
+CloakPass attempts to solve this problem.
 
 CloakPass was written in python 3.9.7 and pynput 1.7.6
 
@@ -35,6 +37,14 @@ Cloak pass solves this problem by putting together 2 things you know that are ea
 a password that is hard to crack.  No passwords are stored anywhere not even encrypted.  The two things (key and password) are only 
 in your head so there is nothing to steal, nothing to crack and nothing to find.  Without your copy of cloakpass no reasonable
 hacker is going to be able to crack your passwords and since large portions of data were removed it is not possible to reverse
-the hash to your original two salt, key, and password.  
+the hash to your original salt, key, and password. 
+
+Finally This is open source in python so it can be inspected and verified.
+It was designed to defeat many key loggers as well.  It locks the entire keyboard while you are typing your password for exclusive use.
+Also you're not typing the salt so the most they could see from a key logger is your key which you used to start the program.
+They're still missing the salt and the password you typed.  People looking over your shoulder will not get enough information either
+because they don't see the key or the salt.  Well if they have a photographic memory perhaps they can remember the hashed mess that is
+the final output after you press enter or tab... but if they can do that you have bigger problems.
 
 I hope you enjoy this updated version of CloakPass!  
+
