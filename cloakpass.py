@@ -2,14 +2,14 @@
 
 """CloakPass copyright 1994 MtxDev.
 
-# version P_2.03rc Jan 2022 by MtxDev
+# version P_2.05b Jan 2022 by MtxDev
 # The previous versions were written in Visual Basic.
 # cntl alt p turns on the listener.
 # Key's are captured upon tab or enter
 # the hashed string is output.
 # Two command line arguments are input a salt and a key
 # This makes each usage unique.
-# cntl alt i ends the program
+# cntl alt e ends the program
 """
 import argparse
 
@@ -47,13 +47,12 @@ class CloakPass():
     Following an enter or tab replace
     them with the hashed string and reset to
     listen for the next Crtl alt p.
-    if you press shift alt c it will launch a small gui
-    to change the hash or exit the program
     """
 
-    sMyVer = "PY_2.03rc"
+    sMyVer = "PY_2.05b"
     # needed for sha512 Hash functions
     import hashlib
+    import threading  # used to thread the message loop
     from collections import OrderedDict
     import base64
     mybase64 = base64
@@ -139,9 +138,10 @@ class CloakPass():
         """Initialize and start Listener."""
         self.debug(1, "starting", "Main")
         self.HotKeyListener(self._Start_)
-        self.looper(self.fDefaultLoopDelay)
-
-#        print("stopping now")
+        self.threading.Thread(target=self.looper,
+                              args=(str(self.fDefaultLoopDelay))).start()
+        # self.looper(self.fDefaultLoopDelay)
+        # print("stopping now")
 
     def SendOutput(self):
         """Send the password and backspaces if flag is set.
@@ -198,49 +198,82 @@ class CloakPass():
         else:
             if key == self.Key.esc:
                 self.debug(1, "esc pressed", "CheckFlags")
-                self.shutdown()
-                # Redundant, but Listener thread will stop if we return false
-                return False
+                # Copied from Send output.  Exit listener cleanly
+                self.bSendOutput = False
+                self.fLoopDelay = self.fDefaultLoopDelay
+                self.KeyListener(self._Stop_)
+                return True
             elif self.bHotKeyP is True:
                 self.bHotKeyP = False
                 self.bInPass = True
                 self.PassWord = ""
                 return True
 
+    def Hex2Binary(self, sHexNum: str, iDigits: int = 8) -> str:
+        """Convert hexadecimal to a string of binary zero padded."""
+        return str(bin(int(sHexNum, 16)))[2:].zfill(iDigits)
+
+    def ApplyPasswordRules(self, sInput: str) -> str:
+        """Change hashed binary input into password string.
+
+        Input is in 1's and 0's ie 101101100
+        first change to binary array then map to ascii characters
+        according to the global flags set.
+        It is implemented in the negative.  If you don't have
+        bNums set true then this excludes them.
+        It does not guarantee their inclusion.
+        """
+        self.debug(2, "sInput=" + sInput, "ApplyPasswordRules")
+        iBin = int(sInput, 2)
+        ByteNum = iBin.bit_length() + 7 // 8
+        binary_array = iBin.to_bytes(ByteNum, "big", signed=False)
+        sString = ""
+        sOrig = ""
+        for i in binary_array:
+            iVal = int(i)
+            if iVal > 127:
+                iVal -= 127  # make sure it's ok for ascii
+            if iVal < 32:
+                iVal += 32  # only make printable characters
+            if iVal > 1:  # zeros are just padding get rid of them
+                sOrig += chr(iVal)
+                if self.bSpcChars is False:
+                    if iVal < 48:
+                        iVal = (48 + (48 - iVal))
+                    if (iVal > 57 and iVal < 65):
+                        iVal = 65 + (65-iVal)
+                    if (iVal > 90 and iVal < 97):
+                        iVal = (97 + (iVal - 90))
+                    if (iVal > 122):
+                        iVal = (97 + (iVal - 122))
+                if self.bNums is False:
+                    if iVal > 47 and iVal < 58:
+                        iVal = (65+(iVal-47))
+                sChr = chr(iVal)
+                if self.bCaps is False:
+                    sChr = sChr.lower()
+                sString += sChr
+                self.debug(2, "sString=" + sString, "ApplyPasswordRules")
+        return sString
+
     def HashPass(self, sInput: str, sSalt: str, sKey: str) -> str:
         """Hash a password using 3 items irreversibly."""
+        sHP = ""
         sHashPass = sSalt + sInput + sKey
         self.debug(2, "sHashPass=" + sHashPass, "HashPass")
         # make a cryptographic hash from the string to make it unrecognizable
         hashthing = self.hashlib.sha512()
-        hashthing.update(bytes(sHashPass,'ascii'))
+        hashthing.update(bytes(sHashPass, 'ascii'))
         hxSha512 = hashthing.hexdigest()
-        self.debug(2, "hxSha512=" + str(hxSha512), "HashPass")
-        # going base 64 adds caps to the string pretty well
-        hx64 = hxSha512.encode('ascii')
-        base64_bytes = self.base64.b64encode(hx64)
-        base64_message = base64_bytes.decode('ascii')
-        # shortening and removing dupes makes reversing infeasable
-        sNoDupes = "".join(self.OrderedDict.fromkeys(base64_message))
-        #Limit the string size based upon the max length specified.
+        binVal = self.Hex2Binary(hxSha512)
+        sHashedString = self.ApplyPasswordRules(binVal)
+        # remove Dupes
+        sNoDupes = "".join(self.OrderedDict.fromkeys(sHashedString))
+        # Limit the string size based upon the max length specified.
         if self.iPassLen >= len(sNoDupes):
             self.iPassLen = len(sNoDupes)
+        # remove data to make reversing impossible
         sHP = sNoDupes[0:self.iPassLen]
-        # add some special characters
-        if self.bSpcChars is True:  # refine this later
-            mydict = {99:  37, 100:  33, 51:  33, 52:  35, 53:  36, 54:  37, 61:  36}
-            sAddSpcChar = sHP.translate(mydict)
-            sHP = sAddSpcChar[0:self.iPassLen-1]
-            sHP = sHP + "!"
-        # No capital letters
-        if self.bCaps is False:
-            sHP = sHP.lower()
-        # Replace numbers with lower case letters
-        if self.bNums is False:  #
-            mydict = {48:  97, 49:  105, 50:  99, 51:  100, 52:  101,
-                      53:  112, 54:  103, 55:  122, 56:  118, 57:  108}
-            sAddSpcChar = sHP.translate(mydict)
-            sHP = sAddSpcChar
         self.debug(2, "sHP=" + sHP, "HashPass")
         return sHP
 
@@ -301,13 +334,13 @@ class CloakPass():
         call: sCmd="start" or sCmd="stop" bSuppress is True of Fallse
         """
         if (bStartStop is True):
-            self.lisKeys = self.Listener(
-                suppress=bSuppress,
-                on_release=self.on_release,
-                on_press=self.on_press
-                )
-            self.lisKeys.daemon = True
             if self.bListening is False:  # Only start if it's not running
+                self.lisKeys = self.Listener(
+                    suppress=bSuppress,
+                    on_release=self.on_release,
+                    on_press=self.on_press
+                    )
+                self.lisKeys.daemon = True
                 self.lisKeys.start()
                 self.bListening = True
                 self.fLoopDelay = .05
@@ -348,8 +381,9 @@ class CloakPass():
             self.debug(3, "Listener Stopped", "HotKeyListener")
             return False
 
-    def looper(self, i: int) -> None:
-        """Message loop to run as a daemon."""
+    def looper(self, sStatus: str) -> None:
+        """Message loop to run as a daemon.  Use a thread to call."""
+        i = int(sStatus)
         self.fLoopDelay = i
         while True:
             i = self.fLoopDelay  # allows other processes to alter the sleep
